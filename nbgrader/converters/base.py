@@ -4,6 +4,8 @@ import re
 import shutil
 import sqlalchemy
 import traceback
+import copy
+import random
 
 from rapidfuzz import fuzz
 from traitlets.config import LoggingConfigurable, Config
@@ -16,6 +18,7 @@ from nbconvert.writers import FilesWriter
 from ..coursedir import CourseDirectory
 from ..utils import find_all_files, rmtree, remove
 from ..preprocessors.execute import UnresponsiveKernelError
+from ..api import Gradebook
 from ..nbgraderformat import SchemaTooOldError, SchemaTooNewError
 import typing
 from nbconvert.exporters.exporter import ResourcesDict
@@ -60,6 +63,8 @@ class BaseConverter(LoggingConfigurable):
             self.logfile = self.parent.logfile
         else:
             self.logfile = None
+
+        self.student_specific_notebook = False
 
         c = Config()
         c.Exporter.default_preprocessors = []
@@ -289,6 +294,32 @@ class BaseConverter(LoggingConfigurable):
         output, resources = self.exporter.from_filename(notebook_filename, resources=resources)
         self.write_single_notebook(output, resources)
 
+    def convert_student_specific_notebook(self, notebook_filename: str) -> None:
+        """
+        Convert a single notebook to student specific notebook.
+
+        Recommend to be used with randomization preprocessor.
+        TODO: Update comments
+
+        Performs the following steps:
+            1. Initialize notebooks resources 
+            2. Export the notebooks to a particular format
+            3. Write the exported notebooks to files
+        """
+        self.log.info("Converting notebook %s", notebook_filename)
+        resources_base = self.init_single_notebook_resources(notebook_filename)
+
+        with Gradebook(self.coursedir.db_url, self.coursedir.course_id) as gb:
+            students = gb.students
+
+        for student in students:
+            resources = copy.deepcopy(resources_base)
+            resources['nbgrader']['student'] = student.id
+
+            random.seed(student.id)
+            output, resources = self.exporter.from_filename(notebook_filename, resources=resources)
+            self.write_single_notebook(output, resources)
+
     def convert_notebooks(self) -> None:
         errors = []
 
@@ -330,7 +361,10 @@ class BaseConverter(LoggingConfigurable):
 
                 # convert all the notebooks
                 for notebook_filename in self.notebooks:
-                    self.convert_single_notebook(notebook_filename)
+                    if self.student_specific_notebook:
+                        self.convert_student_specific_notebook(notebook_filename)
+                    else:
+                        self.convert_single_notebook(notebook_filename)
 
                 # set assignment permissions
                 self.set_permissions(gd['assignment_id'], gd['student_id'])

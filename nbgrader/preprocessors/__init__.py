@@ -1,4 +1,5 @@
 from .base import NbGraderPreprocessor
+from .randomnotebook import RandomizeNotebook
 from .headerfooter import IncludeHeaderFooter
 from .lockcells import LockCells
 from .clearsolutions import ClearSolutions
@@ -18,6 +19,7 @@ from .clearmarkingscheme import ClearMarkScheme
 from .overwritekernelspec import OverwriteKernelspec
 
 __all__ = [
+    "RandomizeNotebook",
     "AssignLatePenalties",
     "IncludeHeaderFooter",
     "LockCells",

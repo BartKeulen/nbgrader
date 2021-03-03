@@ -7,6 +7,7 @@ from traitlets import List, Bool, default
 from ..api import Gradebook, MissingEntry
 from .base import BaseConverter, NbGraderException
 from ..preprocessors import (
+    RandomizeNotebook,
     IncludeHeaderFooter,
     ClearSolutions,
     LockCells,
@@ -56,6 +57,7 @@ class GenerateAssignment(BaseConverter):
         return self.coursedir.release_directory
 
     preprocessors = List([
+        RandomizeNotebook,
         IncludeHeaderFooter,
         LockCells,
         ClearSolutions,
@@ -87,6 +89,8 @@ class GenerateAssignment(BaseConverter):
 
     def __init__(self, coursedir: CourseDirectory = None, **kwargs: Any) -> None:
         super(GenerateAssignment, self).__init__(coursedir=coursedir, **kwargs)
+
+        self.student_specific_notebook = True
 
     def _clean_old_notebooks(self, assignment_id: str, student_id: str) -> None:
         with Gradebook(self.coursedir.db_url, self.coursedir.course_id) as gb:
