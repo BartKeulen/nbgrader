@@ -316,7 +316,10 @@ class BaseConverter(LoggingConfigurable):
             resources = copy.deepcopy(resources_base)
             resources['nbgrader']['student'] = student.id
 
-            random.seed(student.id)
+            # Create unique seed for each student, assignment and notebook combination
+            seed = resources['nbgrader']['student'] + resources['nbgrader']['assignment'] + resources['nbgrader']['notebook']
+            random.seed(seed) 
+            
             output, resources = self.exporter.from_filename(notebook_filename, resources=resources)
             self.write_single_notebook(output, resources)
 
