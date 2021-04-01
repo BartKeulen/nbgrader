@@ -2688,7 +2688,6 @@ class Gradebook(object):
                         Student.id == student)\
                     .one()
             except NoResultFound:
-                import pdb; pdb.set_trace()
                 raise MissingEntry("No such taskcomment: {}/{}/{} for {}".format(
                     assignment, notebook, solution_cell, student))
 

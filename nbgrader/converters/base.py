@@ -164,8 +164,13 @@ class BaseConverter(LoggingConfigurable):
 
         return resources
 
-    def write_single_notebook(self, output: str, resources: ResourcesDict) -> None:
-        self.writer.build_directory = self.coursedir.format_path(self._output_directory, resources['nbgrader']['assignment'], resources['nbgrader']['student'], escape=False)
+    def write_single_notebook(self, output: str, resources: ResourcesDict, randomized: bool = False) -> None:
+        # configure the writer build directory
+        if randomized:
+            self.writer.build_directory = self.coursedir.format_path(self._output_directory, resources['nbgrader']['assignment'], resources['nbgrader']['student'], escape=False)
+        else:
+            self.writer.build_directory = self._format_dest(
+                resources['nbgrader']['assignment'], resources['nbgrader']['student'])
 
         # write out the results
         self.writer.write(output, resources, notebook_name=resources['unique_key'])
@@ -322,7 +327,8 @@ class BaseConverter(LoggingConfigurable):
             random.seed(seed) 
             
             output, resources = self.exporter.from_filename(notebook_filename, resources=resources)
-            self.write_single_notebook(output, resources)
+
+            self.write_single_notebook(output, resources, randomized=True)
 
     def convert_notebooks(self) -> None:
         errors = []
