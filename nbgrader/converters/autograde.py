@@ -1,11 +1,13 @@
 import os
 import shutil
+import random
 
 from textwrap import dedent
 from traitlets import Bool, List, Dict
 
 from .base import BaseConverter, NbGraderException
 from ..preprocessors import (
+    RandomizeNotebook,
     AssignLatePenalties, ClearOutput, DeduplicateIds, OverwriteCells, SaveAutoGrades,
     Execute, LimitOutput, OverwriteKernelspec, CheckCellMetadata)
 from ..api import Gradebook, MissingEntry
@@ -51,6 +53,7 @@ class Autograde(BaseConverter):
         return self.coursedir.autograded_directory
 
     sanitize_preprocessors = List([
+        RandomizeNotebook,
         ClearOutput,
         DeduplicateIds,
         OverwriteKernelspec,
@@ -191,3 +194,11 @@ class Autograde(BaseConverter):
             super(Autograde, self).convert_single_notebook(notebook_filename)
         finally:
             self._sanitizing = True
+
+    def convert_student_specific_notebook(self, notebook_filename: str) -> None:
+        # Create unique seed for each student, assignment and notebook combination
+        resources = self.init_single_notebook_resources(notebook_filename)
+        seed = self._format_seed(resources['nbgrader']['student'], resources['nbgrader']['assignment'], resources['nbgrader']['notebook'])
+        random.seed(seed)
+
+        self.convert_single_notebook(notebook_filename)

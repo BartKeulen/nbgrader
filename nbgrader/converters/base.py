@@ -107,6 +107,9 @@ class BaseConverter(LoggingConfigurable):
     def _format_dest(self, assignment_id: str, student_id: str, escape: bool = False) -> str:
         return self.coursedir.format_path(self._output_directory, student_id, assignment_id, escape=escape)
 
+    def _format_seed(self, student_id: str, assignment_id: str, notebook: str) -> str:
+        return student_id + assignment_id + notebook
+
     def init_notebooks(self) -> None:
         self.assignments = {}
         self.notebooks = []
@@ -162,9 +165,7 @@ class BaseConverter(LoggingConfigurable):
         return resources
 
     def write_single_notebook(self, output: str, resources: ResourcesDict) -> None:
-        # configure the writer build directory
-        self.writer.build_directory = self._format_dest(
-            resources['nbgrader']['assignment'], resources['nbgrader']['student'])
+        self.writer.build_directory = self.coursedir.format_path(self._output_directory, resources['nbgrader']['assignment'], resources['nbgrader']['student'], escape=False)
 
         # write out the results
         self.writer.write(output, resources, notebook_name=resources['unique_key'])
@@ -317,7 +318,7 @@ class BaseConverter(LoggingConfigurable):
             resources['nbgrader']['student'] = student.id
 
             # Create unique seed for each student, assignment and notebook combination
-            seed = resources['nbgrader']['student'] + resources['nbgrader']['assignment'] + resources['nbgrader']['notebook']
+            seed = self._format_seed(resources['nbgrader']['student'], resources['nbgrader']['assignment'], resources['nbgrader']['notebook'])
             random.seed(seed) 
             
             output, resources = self.exporter.from_filename(notebook_filename, resources=resources)
@@ -362,12 +363,16 @@ class BaseConverter(LoggingConfigurable):
                 # initialize the destination
                 self.init_assignment(gd['assignment_id'], gd['student_id'])
 
-                # convert all the notebooks
-                for notebook_filename in self.notebooks:
-                    if self.student_specific_notebook:
-                        self.convert_student_specific_notebook(notebook_filename)
-                    else:
-                        self.convert_single_notebook(notebook_filename)
+                # Check whether randomized student versions should be generated
+                with Gradebook(self.coursedir.db_url, self.coursedir.course_id) as gb:
+                    randomize = gb.find_assignment(gd['assignment_id']).randomize
+
+                    # convert all the notebooks
+                    for notebook_filename in self.notebooks:
+                        if randomize:
+                            self.convert_student_specific_notebook(notebook_filename)
+                        else:
+                            self.convert_single_notebook(notebook_filename)
 
                 # set assignment permissions
                 self.set_permissions(gd['assignment_id'], gd['student_id'])

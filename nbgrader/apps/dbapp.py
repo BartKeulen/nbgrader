@@ -300,6 +300,7 @@ assignment_add_aliases = {}
 assignment_add_aliases.update(aliases)
 assignment_add_aliases.update({
     'duedate': 'DbAssignmentAddApp.duedate',
+    'randomize': 'DbAssignmentAddApp.randomize'
 })
 
 class DbAssignmentAddApp(DbBaseApp):
@@ -316,6 +317,8 @@ class DbAssignmentAddApp(DbBaseApp):
         help="The due date of the assignment"
     ).tag(config=True)
 
+    randomize = Bool(False, help="Whether to generate randomized notebooks for each student.").tag(config=True)
+
     def start(self):
         super(DbAssignmentAddApp, self).start()
 
@@ -324,7 +327,8 @@ class DbAssignmentAddApp(DbBaseApp):
 
         assignment_id = self.extra_args[0]
         assignment = {
-            "duedate": self.duedate
+            "duedate": self.duedate,
+            "randomize": self.randomize
         }
 
         self.log.info("Creating/updating assignment with ID '%s': %s", assignment_id, assignment)
@@ -416,7 +420,7 @@ class DbAssignmentListApp(DbBaseApp):
         with Gradebook(self.coursedir.db_url, self.course_id, self.authenticator) as gb:
             print("There are %d assignments in the database:" % len(gb.assignments))
             for assignment in gb.assignments:
-                print("%s (due: %s)" % (assignment.name, assignment.duedate))
+                print("%s (due: %s, randomize: %s)" % (assignment.name, assignment.duedate, assignment.randomize))
                 for notebook in assignment.notebooks:
                     print("    - %s" % notebook.name)
 

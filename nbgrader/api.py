@@ -55,6 +55,9 @@ class Assignment(Base):
     #: Unique human-readable name for the assignment, such as "Problem Set 1"
     name = Column(String(128), unique=True, nullable=False)
 
+    #: Generate random release version for each student
+    randomize = Column(Boolean(), default=False)
+
     #: (Optional) Duedate for the assignment in datetime format, with UTC timezone
     duedate = Column(DateTime())
 
@@ -87,9 +90,10 @@ class Assignment(Base):
     #: each notebook
     max_written_score = None
 
-    def __init__(self, name, duedate=None, course_id="default_course", **kwargs):
+    def __init__(self, name, duedate=None, randomize=False, course_id="default_course", **kwargs):
         self.name = name
         self.duedate = duedate
+        self.randomize = randomize
         self.course_id = course_id
 
     def to_dict(self):
@@ -101,6 +105,7 @@ class Assignment(Base):
             "id": self.id,
             "name": self.name,
             "duedate": self.duedate.isoformat() if self.duedate is not None else None,
+            "randomize": self.randomize,
             "num_submissions": self.num_submissions,
             "max_score": self.max_score,
             "max_code_score": self.max_code_score,
@@ -2683,6 +2688,7 @@ class Gradebook(object):
                         Student.id == student)\
                     .one()
             except NoResultFound:
+                import pdb; pdb.set_trace()
                 raise MissingEntry("No such taskcomment: {}/{}/{} for {}".format(
                     assignment, notebook, solution_cell, student))
 

@@ -1,5 +1,7 @@
 import os
 import shutil
+import glob
+import re
 from stat import (
     S_IRUSR, S_IWUSR, S_IXUSR,
     S_IRGRP, S_IWGRP, S_IXGRP,
@@ -10,6 +12,7 @@ from stat import (
 
 from nbgrader.exchange.abc import ExchangeReleaseAssignment as ABCExchangeReleaseAssignment
 from nbgrader.exchange.default import Exchange
+from nbgrader.api import Gradebook
 
 
 class ExchangeReleaseAssignment(Exchange, ABCExchangeReleaseAssignment):
@@ -52,6 +55,12 @@ class ExchangeReleaseAssignment(Exchange, ABCExchangeReleaseAssignment):
                 except PermissionError:
                     self.fail("Could not change permissions of {}, permission denied.".format(self.root))
 
+    @property
+    def randomized_assignment(self):
+        with Gradebook(self.coursedir.db_url, self.coursedir.course_id) as gb:
+            randomize = gb.find_assignment(self.coursedir.assignment_id).randomize
+        return randomize
+
     def init_src(self):
         self.src_path = self.coursedir.format_path(self.coursedir.release_directory, '.', self.coursedir.assignment_id)
         if not os.path.isdir(self.src_path):
@@ -64,6 +73,38 @@ class ExchangeReleaseAssignment(Exchange, ABCExchangeReleaseAssignment):
                 self._assignment_not_found(
                     self.src_path,
                     self.coursedir.format_path(self.coursedir.release_directory, '.', '*'))
+        
+        
+        # assignment_generated = True
+
+
+        # if not self.randomized_assignment:
+        #     self.src_path = self.coursedir.format_path(self.coursedir.release_directory, '.', self.coursedir.assignment_id)
+        #     if not os.path.isdir(self.src_path):
+        #         assignment_generated = False
+
+        #     self.release_dirs = []
+                
+        # else:
+        #     self.src_path = self.coursedir.format_path(
+        #         self.coursedir.release_directory, '*',
+        #         self.coursedir.assignment_id)
+
+        #     self.release_dirs = glob.glob(self.src_path)
+
+        #     if len(self.release_dirs) == 0:
+        #         assignment_generated = False
+
+        # if not assignment_generated:
+        #     source = self.coursedir.format_path(self.coursedir.source_directory, '.', self.coursedir.assignment_id)
+        #     if os.path.isdir(source):
+        #         # Looks like the instructor forgot to assign
+        #         self.fail("Assignment found in '{}' but not '{}', run `nbgrader generate_assignment` first.".format(
+        #             source, self.src_path))
+        #     else:
+        #         self._assignment_not_found(
+        #             self.src_path,
+        #             self.coursedir.format_path(self.coursedir.release_directory, '.', '*'))
 
     def init_dest(self):
         if self.coursedir.course_id == '':
@@ -72,7 +113,7 @@ class ExchangeReleaseAssignment(Exchange, ABCExchangeReleaseAssignment):
         self.course_path = os.path.join(self.root, self.coursedir.course_id)
         self.outbound_path = os.path.join(self.course_path, 'outbound')
         self.inbound_path = os.path.join(self.course_path, 'inbound')
-        self.dest_path = os.path.join(self.outbound_path, self.coursedir.assignment_id)
+        self.dest_path = os.path.join(self.outbound_path)
         # 0755
         # groupshared: +2040
         self.ensure_directory(
@@ -93,21 +134,58 @@ class ExchangeReleaseAssignment(Exchange, ABCExchangeReleaseAssignment):
         )
 
     def copy_files(self):
-        if os.path.isdir(self.dest_path):
-            if self.force:
-                self.log.info("Overwriting files: {} {}".format(
-                    self.coursedir.course_id, self.coursedir.assignment_id
-                ))
-                shutil.rmtree(self.dest_path)
+        if not self.randomized_assignment:
+            dest_path = self.coursedir.format_path(
+                self.dest_path, '.', self.coursedir.assignment_id
+            )
+
+            if os.path.isdir(dest_path):
+                if self.force:
+                    self.log.info("Overwriting files: {} {}".format(
+                        self.coursedir.course_id, self.coursedir.assignment_id
+                    ))
+                    shutil.rmtree(dest_path)
+                else:
+                    self.fail("Destination already exists, add --force to overwrite: {} {}".format(
+                        self.coursedir.course_id, self.coursedir.assignment_id
+                    ))
+        
+            self.log.info("Source: {}".format(self.src_path))
+            self.log.info("Destination: {}".format(dest_path))
+            self.do_copy(self.src_path, dest_path)
+            self.set_perms(
+                dest_path,
+                fileperms=(S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH|(S_IWGRP if self.coursedir.groupshared else 0)),
+                dirperms=(S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH|((S_ISGID|S_IWGRP) if self.coursedir.groupshared else 0)))
+            self.log.info("Released as: {} {}".format(self.coursedir.course_id, self.coursedir.assignment_id))
+
+        else:
+            if self.coursedir.student_id_exclude:
+                exclude_students = set(self.coursedir.student_id_exclude.split(','))
             else:
-                self.fail("Destination already exists, add --force to overwrite: {} {}".format(
-                    self.coursedir.course_id, self.coursedir.assignment_id
-                ))
-        self.log.info("Source: {}".format(self.src_path))
-        self.log.info("Destination: {}".format(self.dest_path))
-        self.do_copy(self.src_path, self.dest_path)
-        self.set_perms(
-            self.dest_path,
-            fileperms=(S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH|(S_IWGRP if self.coursedir.groupshared else 0)),
-            dirperms=(S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH|((S_ISGID|S_IWGRP) if self.coursedir.groupshared else 0)))
-        self.log.info("Released as: {} {}".format(self.coursedir.course_id, self.coursedir.assignment_id))
+                exclude_students = set()
+
+            for student_id in os.listdir(self.src_path):
+                src_path = os.path.join(self.src_path, student_id)
+
+                # If not a directory skip
+                if not os.path.isdir(src_path):
+                    continue
+
+                if student_id in exclude_students:
+                    self.log.debug("Skipping student '{}'".format(student_id))
+                    continue
+
+                dest_path = self.coursedir.format_path(
+                    self.dest_path, self.coursedir.assignment_id, student_id
+                )
+
+                self.do_copy(src_path, dest_path)
+                self.set_perms(
+                    dest_path,
+                    fileperms=(S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH|(S_IWGRP if self.coursedir.groupshared else 0)),
+                    dirperms=(S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH|((S_ISGID|S_IWGRP) if self.coursedir.groupshared else 0)))
+
+            self.log.info("Released as: {} {}".format(self.coursedir.course_id, self.coursedir.assignment_id))
+
+                
