@@ -11,7 +11,6 @@ from nbgrader.exchange.abc import ExchangeSubmit as ABCExchangeSubmit
 from traitlets import Bool
 
 from .exchange import Exchange
-from nbgrader.api import Gradebook
 from nbgrader.utils import get_username, check_mode, find_all_notebooks
 
 
@@ -23,12 +22,6 @@ class ExchangeSubmit(Exchange, ABCExchangeSubmit):
             "Whether to add a random string on the end of the submission."
         )
     ).tag(config=True)
-
-    @property
-    def randomized_assignment(self):
-        with Gradebook(self.coursedir.db_url, self.coursedir.course_id) as gb:
-            randomize = gb.find_assignment(self.coursedir.assignment_id).randomize
-        return randomize
 
     def init_src(self):
         if self.path_includes_course:
@@ -75,14 +68,6 @@ class ExchangeSubmit(Exchange, ABCExchangeSubmit):
             self.fail("No course id specified. Re-run with --course flag.")
 
         student_id = "."
-        if self.randomized_assignment:
-            if self.coursedir.student_id != '*':
-                # An explicit student id has been specified on the command line; we use it as student_id
-                if '*' in self.coursedir.student_id or '+' in self.coursedir.student_id:
-                    self.fail("The student ID should contain no '*' nor '+'; got {}".format(self.coursedir.student_id))
-                student_id = self.coursedir.student_id
-            else:
-                student_id = get_username()
 
         course_path = os.path.join(self.root, self.coursedir.course_id)
         outbound_path = os.path.join(course_path, 'outbound')

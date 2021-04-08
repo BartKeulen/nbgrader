@@ -12,7 +12,6 @@ from stat import (
 
 from nbgrader.exchange.abc import ExchangeReleaseAssignment as ABCExchangeReleaseAssignment
 from nbgrader.exchange.default import Exchange
-from nbgrader.api import Gradebook
 
 
 class ExchangeReleaseAssignment(Exchange, ABCExchangeReleaseAssignment):
@@ -55,11 +54,14 @@ class ExchangeReleaseAssignment(Exchange, ABCExchangeReleaseAssignment):
                 except PermissionError:
                     self.fail("Could not change permissions of {}, permission denied.".format(self.root))
 
+
     @property
     def randomized_assignment(self):
-        with Gradebook(self.coursedir.db_url, self.coursedir.course_id) as gb:
-            randomize = gb.find_assignment(self.coursedir.assignment_id).randomize
-        return randomize
+        randomize_indicator_path = os.path.join(
+            self.coursedir.format_path(self.coursedir.release_directory, '.', self.coursedir.assignment_id), 
+            ".randomized_assignment"
+        )
+        return os.path.exists()
 
     def init_src(self):
         self.src_path = self.coursedir.format_path(self.coursedir.release_directory, '.', self.coursedir.assignment_id)
@@ -134,7 +136,11 @@ class ExchangeReleaseAssignment(Exchange, ABCExchangeReleaseAssignment):
         )
 
     def copy_files(self):
-        if not self.randomized_assignment:
+        randomize_indicator_path = os.path.join(
+            self.coursedir.release_directory, self.coursedir.assignment_id, ".randomized_assignment"
+        )
+
+        if not os.path.exists(randomize_indicator_path):
             dest_path = self.coursedir.format_path(
                 self.dest_path, '.', self.coursedir.assignment_id
             )
@@ -165,6 +171,16 @@ class ExchangeReleaseAssignment(Exchange, ABCExchangeReleaseAssignment):
             else:
                 exclude_students = set()
 
+            # Copy randomized indicator file
+            src_path = os.path.join(self.src_path, ".randomized_assignment")
+
+            dest_dir = os.path.join(self.dest_path, self.coursedir.assignment_id)
+            if not os.path.exists(dest_dir):
+                os.mkdir(dest_dir)
+            dest_path = os.path.join(dest_dir, ".randomized_assignment")
+            shutil.copyfile(src_path, dest_path)
+                
+            # Copy notebooks
             for student_id in os.listdir(self.src_path):
                 src_path = os.path.join(self.src_path, student_id)
 

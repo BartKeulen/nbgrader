@@ -101,6 +101,12 @@ class BaseConverter(LoggingConfigurable):
     def _output_directory(self):
         raise NotImplementedError
 
+    def randomized_assignment(self, assignment_id):
+        # Check whether randomized student versions should be generated
+        with Gradebook(self.coursedir.db_url, self.coursedir.course_id) as gb:
+            randomized_assignment = gb.find_assignment(assignment_id).randomize
+        return randomized_assignment
+    
     def _format_source(self, assignment_id: str, student_id: str, escape: bool = False) -> str:
         return self.coursedir.format_path(self._input_directory, student_id, assignment_id, escape=escape)
 
@@ -297,6 +303,11 @@ class BaseConverter(LoggingConfigurable):
         """
         self.log.info("Converting notebook %s", notebook_filename)
         resources = self.init_single_notebook_resources(notebook_filename)
+
+        # Create and set unique seed for reproducibility when used with randomization pre-processor
+        seed = self._format_seed(resources['nbgrader']['student'], resources['nbgrader']['assignment'], resources['nbgrader']['notebook'])
+        random.seed(seed) 
+
         output, resources = self.exporter.from_filename(notebook_filename, resources=resources)
         self.write_single_notebook(output, resources)
 
@@ -305,7 +316,6 @@ class BaseConverter(LoggingConfigurable):
         Convert a single notebook to student specific notebook.
 
         Recommend to be used with randomization preprocessor.
-        TODO: Update comments
 
         Performs the following steps:
             1. Initialize notebooks resources 
@@ -322,7 +332,7 @@ class BaseConverter(LoggingConfigurable):
             resources = copy.deepcopy(resources_base)
             resources['nbgrader']['student'] = student.id
 
-            # Create unique seed for each student, assignment and notebook combination
+            # Create and set unique seed for reproducibility when used with randomization pre-processor
             seed = self._format_seed(resources['nbgrader']['student'], resources['nbgrader']['assignment'], resources['nbgrader']['notebook'])
             random.seed(seed) 
             
@@ -369,16 +379,12 @@ class BaseConverter(LoggingConfigurable):
                 # initialize the destination
                 self.init_assignment(gd['assignment_id'], gd['student_id'])
 
-                # Check whether randomized student versions should be generated
-                with Gradebook(self.coursedir.db_url, self.coursedir.course_id) as gb:
-                    randomize = gb.find_assignment(gd['assignment_id']).randomize
-
-                    # convert all the notebooks
-                    for notebook_filename in self.notebooks:
-                        if randomize:
-                            self.convert_student_specific_notebook(notebook_filename)
-                        else:
-                            self.convert_single_notebook(notebook_filename)
+                # convert all the notebooks
+                for notebook_filename in self.notebooks:
+                    if self.randomized_assignment(gd['assignment_id']):
+                        self.convert_student_specific_notebook(notebook_filename)
+                    else:
+                        self.convert_single_notebook(notebook_filename)
 
                 # set assignment permissions
                 self.set_permissions(gd['assignment_id'], gd['student_id'])

@@ -4,7 +4,6 @@ import shutil
 from nbgrader.exchange.abc import ExchangeFetchAssignment as ABCExchangeFetchAssignment
 from nbgrader.exchange.default import Exchange
 from nbgrader.utils import check_mode, get_username
-from nbgrader.api import Gradebook
 
 
 class ExchangeFetchAssignment(Exchange, ABCExchangeFetchAssignment):
@@ -22,21 +21,21 @@ class ExchangeFetchAssignment(Exchange, ABCExchangeFetchAssignment):
             del cfg.ExchangeFetch
 
         super(ExchangeFetchAssignment, self)._load_config(cfg, **kwargs)
-
-    @property
-    def randomized_assignment(self):
-        with Gradebook(self.coursedir.db_url, self.coursedir.course_id) as gb:
-            randomize = gb.find_assignment(self.coursedir.assignment_id).randomize
-        return randomize
-
+    
     def init_src(self):
         if self.coursedir.course_id == '':
             self.fail("No course id specified. Re-run with --course flag.")
         if not self.authenticator.has_access(self.coursedir.student_id, self.coursedir.course_id):
             self.fail("You do not have access to this course.")
 
+        self.course_path = os.path.join(self.root, self.coursedir.course_id)
+        self.outbound_path = os.path.join(self.course_path, 'outbound')
+
+        randomize_indicator_path = os.path.join(self.outbound_path, self.coursedir.assignment_id, ".randomized_assignment")
+
         student_id = "."
-        if self.randomized_assignment:
+        print(randomize_indicator_path)
+        if os.path.exists(randomize_indicator_path):
             if self.coursedir.student_id != '*':
                 # An explicit student id has been specified on the command line; we use it as student_id
                 if '*' in self.coursedir.student_id or '+' in self.coursedir.student_id:
@@ -45,8 +44,6 @@ class ExchangeFetchAssignment(Exchange, ABCExchangeFetchAssignment):
             else:
                 student_id = get_username()
 
-        self.course_path = os.path.join(self.root, self.coursedir.course_id)
-        self.outbound_path = os.path.join(self.course_path, 'outbound')
 
         self.src_path = os.path.join(self.outbound_path, self.coursedir.assignment_id,
         student_id)
