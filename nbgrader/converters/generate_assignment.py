@@ -159,12 +159,19 @@ class GenerateAssignment(BaseConverter):
                 self._clean_old_notebooks(assignment_id, student_id)
 
         # Create randomized assignment indicator file
+        dest_dir = self._format_dest(assignment_id, student_id)
         randomize_indicator_path = os.path.join(
-            self._format_dest(assignment_id, student_id),
-            ".randomized_assignment"
+            dest_dir, ".randomized_assignment"
         )
-        if os.path.exists(randomize_indicator_path):
+
+        # Create directory if not exists
+        if not os.path.exists(dest_dir):
+            os.mkdir(dest_dir)
+        # Remove file if exists 
+        elif os.path.exists(randomize_indicator_path):
             os.remove(randomize_indicator_path)
+
+        # Create file
         if self.randomized_assignment(assignment_id):
             os.mknod(randomize_indicator_path)
 
