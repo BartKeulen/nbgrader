@@ -140,7 +140,8 @@ class AssignmentHandler(BaseApiHandler):
         timezone = data.get("duedate_timezone", None)
         if duedate and timezone:
             duedate = duedate + " " + timezone
-        assignment = {"duedate": duedate}
+        randomize = data.get("randomize", False)
+        assignment = {"duedate": duedate, "randomize": randomize}
         assignment_id = assignment_id.strip()
         self.gradebook.update_or_create_assignment(assignment_id, **assignment)
         sourcedir = os.path.abspath(self.coursedir.format_path(self.coursedir.source_directory, '.', assignment_id))

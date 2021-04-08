@@ -15,11 +15,13 @@ var AssignmentUI = Backbone.View.extend({
     initialize: function () {
         this.$modal = undefined;
         this.$modal_duedate = undefined;
+        this.$modal_randomize = undefined;
         this.$modal_timezone = undefined;
         this.$modal_save = undefined;
 
         this.$name = this.$el.find(".name");
         this.$duedate = this.$el.find(".duedate");
+        this.$randomize = this.$el.find(".randomize");
         this.$status = this.$el.find(".status");
         this.$edit = this.$el.find(".edit");
         this.$assign = this.$el.find(".assign");
@@ -59,6 +61,11 @@ var AssignmentUI = Backbone.View.extend({
         timezone.append($("<td/>").addClass("align-middle").text("Timezone as UTC offset (optional)"));
         timezone.append($("<td/>").append($("<input/>").addClass("modal-timezone").attr("type", "text")));
 
+        var randomize = $("<tr/>");
+        tablebody.append(randomize);
+        randomize.append($("<td/>").addClass("align-middle").text("Randomize"));
+        randomize.append($("<td/>").append($("<input/>").addClass("modal-randomize").attr("type", "checkbox")));
+
         var footer = $("<div/>");
         footer.append($("<button/>")
             .addClass("btn btn-primary save")
@@ -76,6 +83,8 @@ var AssignmentUI = Backbone.View.extend({
         this.$modal_duedate.val(this.model.get("duedate_notimezone"));
         this.$modal_timezone = this.$modal.find("input.modal-timezone");
         this.$modal_timezone.val(this.model.get("duedate_timezone"));
+        this.$modal_randomize = this.$modal.find("input.modal-randomize");
+        this.$modal_randomize[0].checked = this.model.get("randomize");
         this.$modal_save = this.$modal.find("button.save");
         this.$modal_save.click(_.bind(this.save, this));
     },
@@ -83,6 +92,7 @@ var AssignmentUI = Backbone.View.extend({
     clear: function () {
         this.$name.empty();
         this.$duedate.empty();
+        this.$randomize.empty();
         this.$status.empty();
         this.$edit.empty();
         this.$assign.empty();
@@ -114,6 +124,15 @@ var AssignmentUI = Backbone.View.extend({
         }
         this.$duedate.attr("data-order", duedate);
         this.$duedate.text(display_duedate);
+
+        // randomize
+        var randomize = this.model.get("randomize");
+        var display_randomize = "";
+        if (randomize) {
+            display_randomize = "yes"
+        }
+        this.$randomize.attr("data-order", display_randomize);
+        this.$randomize.text(display_randomize);
 
         // status
         var status = this.model.get("status");
@@ -363,12 +382,13 @@ var AssignmentUI = Backbone.View.extend({
 
     save: function () {
         var duedate = this.$modal_duedate.val();
+        var randomize = this.$modal_randomize[0].checked;
         var timezone = this.$modal_timezone.val();
         if (duedate === "") {
             duedate = null;
             timezone = null;
         }
-        this.model.save({"duedate_notimezone": duedate, "duedate_timezone": timezone});
+        this.model.save({"duedate_notimezone": duedate, "duedate_timezone": timezone, "randomize": randomize});
     },
 
     animateSaving: function () {
@@ -466,6 +486,7 @@ var insertRow = function (table) {
     var row = $("<tr/>");
     row.append($("<td/>").addClass("name"));
     row.append($("<td/>").addClass("text-center duedate"));
+    row.append($("<td/>").addClass("text-center randomize"));
     row.append($("<td/>").addClass("text-center status"));
     row.append($("<td/>").addClass("text-center edit"));
     row.append($("<td/>").addClass("text-center assign"));
@@ -484,6 +505,7 @@ var createAssignmentModal = function () {
     var createAssignment = function () {
         var name = modal.find(".name").val();
         var duedate = modal.find(".duedate").val();
+        var randomize = modal.find(".randomize")[0].checked;
         var timezone = modal.find(".timezone").val();
         if (duedate === "") {
             duedate = null;
@@ -510,6 +532,7 @@ var createAssignmentModal = function () {
             "name": name,
             "duedate_notimezone": duedate,
             "duedate_timezone": timezone,
+            "randomize": randomize
         }, {
             "collection": models
         });
@@ -546,6 +569,11 @@ var createAssignmentModal = function () {
     tablebody.append(timezone);
     timezone.append($("<td/>").addClass("align-middle").text("Timezone as UTC offset (optional)"));
     timezone.append($("<td/>").append($("<input/>").addClass("timezone").attr("type", "text")));
+
+    var randomize = $("<tr/>");
+    tablebody.append(randomize);
+    randomize.append($("<td/>").addClass("align-middle").text("Randomize"));
+    randomize.append($("<td/>").append($("<input/>").addClass("randomize").attr("type", "checkbox")));
 
     var footer = $("<div/>");
     footer.append($("<button/>")

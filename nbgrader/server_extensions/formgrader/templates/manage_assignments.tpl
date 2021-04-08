@@ -82,6 +82,7 @@ for instructions.
 <tr>
   <th>Name</th>
   <th class="text-center">Due Date</th>
+  <th class="text-center">Randomized</th>
   <th class="text-center">Status</th>
   <th class="text-center no-sort">Edit</th>
   <th class="text-center no-sort">Generate</th>
